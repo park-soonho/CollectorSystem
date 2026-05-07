@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>CollectorSystem – Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+KR:wght@300;400;600&display=swap');
+
+  :root {
+    --bg:        #0a0e1a;
+    --bg2:       #0f1525;
+    --bg3:       #141c30;
+    --border:    #1e2d4a;
+    --accent:    #00d4ff;
+    --accent2:   #7c3aed;
+    --accent3:   #10b981;
+    --warn:      #f59e0b;
+    --red:       #ef4444;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans KR', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  /* ── 헤더 ── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .header p {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+
+  /* ── 전체 레이아웃 ── */
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── 공통 박스 ── */
+  .box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    background: var(--bg2);
+    position: relative;
+  }
+  .box-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* ── Master 서버 블록 ── */
+  .master-wrap {
+    border: 1px solid #1a3a5c;
+    border-radius: 14px;
+    background: #0c1828;
+    padding: 24px;
+    margin-bottom: 0;
+  }
+  .master-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .master-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, #1a3a5c, transparent);
+  }
+
+  /* Master 내부 그리드 */
+  .master-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  /* ── 포트 배지 ── */
+  .port {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .port-https { background: #0f2a1a; color: #10b981; border: 1px solid #10b98140; }
+  .port-http  { background: #0f1f3a; color: #60a5fa; border: 1px solid #60a5fa40; }
+  .port-api   { background: #1a0f3a; color: #a78bfa; border: 1px solid #a78bfa40; }
+  .port-api2  { background: #2a1a0f; color: #fb923c; border: 1px solid #fb923c40; }
+
+  /* ── 화살표 커넥터 영역 ── */
+  .connector-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 2px;
+    position: relative;
+  }
+  .arrow-line {
+    width: 2px;
+    background: linear-gradient(180deg, #1e4a7a, #7c3aed);
+    flex: 1;
+    min-height: 20px;
+  }
+  .arrow-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid #7c3aed;
+  }
+
+  /* ── Agent 그리드 ── */
+  .agents-zone {
+    border: 1px solid #1a2a1a;
+    border-radius: 14px;
+    background: #0c180c;
+    padding: 24px;
+  }
+  .agents-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent3);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .agents-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, #1a2a1a, transparent);
+  }
+  .agents-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .agent-card {
+    background: #0f1e0f;
+    border: 1px solid #1e3a1e;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .agent-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1e3a1e;
+  }
+  .port-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .agent-block {
+    background: #0a140a;
+    border: 1px solid #1e3a1e;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 8px;
+  }
+  .agent-block-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: #4a7a4a;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .agent-block-items {
+    font-size: 11px;
+    color: #8aaa8a;
+    line-height: 1.8;
+  }
+
+  /* ── 포트 감지 로직 ── */
+  .logic-zone {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .logic-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .logic-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .flow-num {
+    min-width: 20px; height: 20px;
+    background: #1a1a2e;
+    border: 1px solid #2a2a4e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: #6060aa;
+    flex-shrink: 0;
+  }
+  .flow-text {
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.5;
+    padding-top: 2px;
+  }
+  .flow-text code {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: #0a1520;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .flow-text .ok  { color: var(--accent3); font-weight: 600; }
+  .flow-text .alt { color: var(--warn);    font-weight: 600; }
+  .flow-text .err { color: var(--red);     font-weight: 600; }
+
+  /* ── 데이터 흐름 ── */
+  .dataflow {
+    margin-top: 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .dataflow-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .flow-box {
+    padding: 5px 12px;
+    border-radius: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+  }
+  .fb-psutil  { background:#0f1525; color:#60a5fa; border:1px solid #60a5fa40; }
+  .fb-json    { background:#1a1a0f; color:#fbbf24; border:1px solid #fbbf2440; }
+  .fb-api     { background:#0f251a; color:#10b981; border:1px solid #10b98140; }
+  .fb-master  { background:#1a0f25; color:#a78bfa; border:1px solid #a78bfa40; }
+  .fb-df      { background:#0f1a25; color:#38bdf8; border:1px solid #38bdf840; }
+  .fb-excel   { background:#0a1a0a; color:#4ade80; border:1px solid #4ade8040; }
+  .fb-dash    { background:#1a0f0f; color:#f87171; border:1px solid #f8717140; }
+  .flow-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: 4px;
+    font-family: var(--mono);
+  }
+
+  /* ── Excel 파일 구조 ── */
+  .excel-info {
+    background: #0a140a;
+    border: 1px solid #1e3a1e;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+  }
+  .excel-info .row {
+    display: flex;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #8aaa8a;
+    line-height: 2;
+  }
+  .excel-info .key { color: #4a7a4a; min-width: 160px; }
+
+  /* ── 범례 ── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>CollectorSystem Architecture</h1>
+  <p>SERVER RESOURCE MONITORING · MASTER–AGENT TOPOLOGY · PORT AUTO-DETECTION</p>
+</div>
+
+<div class="diagram">
+
+  <!-- ── MASTER 서버 ─────────────────────────────── -->
+  <div class="master-wrap">
+    <div class="master-label">
+      <span class="dot" style="background:#00d4ff"></span>
+      MASTER SERVER  ·  중앙 수집 및 대시보드
+    </div>
+
+    <div class="master-grid">
+
+      <!-- 웹 대시보드 -->
+      <div class="box">
+        <div class="box-title">
+          <span class="dot" style="background:#10b981"></span>
+          WEB DASHBOARD
+        </div>
+        <div class="port-row">
+          <span class="port port-https">:8443 &nbsp;HTTPS / SSL</span>
+          <span class="port port-http">:8001 &nbsp;HTTP</span>
+        </div>
+        <div style="font-size:11px; color:#64748b; line-height:1.7;">
+          Flask + Jinja2<br>
+          실시간 리소스 현황<br>
+          CPU 임계치 경고 표시
+        </div>
+      </div>
+
+      <!-- 수집 스케줄러 -->
+      <div class="box">
+        <div class="box-title">
+          <span class="dot" style="background:#a78bfa"></span>
+          SCHEDULER
+        </div>
+        <div style="font-size:11px; color:#64748b; line-height:1.9;">
+          schedule 라이브러리<br>
+          매 <strong style="color:#a78bfa">5분</strong>마다 전체 수집<br>
+          <code style="font-family:monospace; font-size:10px; color:#7c3aed;">collect_and_save()</code>
+        </div>
+      </div>
+
+      <!-- Master API 포트 -->
+      <div class="box">
+        <div class="box-title">
+          <span class="dot" style="background:#fb923c"></span>
+          MASTER API PORT
+        </div>
+        <div class="port-row">
+          <span class="port port-api">:7000 &nbsp;기본 API</span>
+          <span class="port port-api2">:7001 &nbsp;충돌 시 자동전환</span>
+        </div>
+        <div style="font-size:11px; color:#64748b; margin-top:6px;">
+          <code style="font-family:monospace; font-size:10px; color:#fb923c;">resolve_api_port()</code><br>
+          Agent 탐지 · 상태 API
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 수집 컴포넌트 상세 -->
+    <div class="box" style="background:#0c1020; border-color:#1a2840;">
+      <div class="box-title">
+        <span class="dot" style="background:#38bdf8"></span>
+        ResourceCollector CLASS  ·  master_server.py
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:10px;">
+        <div style="text-align:center; padding:8px; background:#0a1520; border-radius:6px; border:1px solid #1a2840;">
+          <div style="font-family:monospace; font-size:10px; color:#38bdf8; margin-bottom:4px;">detect_agent_port()</div>
+          <div style="font-size:10px; color:#475569;">7000→7001<br>자동 탐지</div>
+        </div>
+        <div style="text-align:center; padding:8px; background:#0a1520; border-radius:6px; border:1px solid #1a2840;">
+          <div style="font-family:monospace; font-size:10px; color:#38bdf8; margin-bottom:4px;">collect_all()</div>
+          <div style="font-size:10px; color:#475569;">전체 Agent<br>순회 수집</div>
+        </div>
+        <div style="text-align:center; padding:8px; background:#0a1520; border-radius:6px; border:1px solid #1a2840;">
+          <div style="font-family:monospace; font-size:10px; color:#38bdf8; margin-bottom:4px;">_fetch_one()</div>
+          <div style="font-size:10px; color:#475569;">단일 Agent<br>HTTP GET</div>
+        </div>
+        <div style="text-align:center; padding:8px; background:#0a1520; border-radius:6px; border:1px solid #1a2840;">
+          <div style="font-family:monospace; font-size:10px; color:#38bdf8; margin-bottom:4px;">to_dataframe()</div>
+          <div style="font-size:10px; color:#475569;">JSON →<br>DataFrame</div>
+        </div>
+        <div style="text-align:center; padding:8px; background:#0a1520; border-radius:6px; border:1px solid #1a2840;">
+          <div style="font-family:monospace; font-size:10px; color:#38bdf8; margin-bottom:4px;">save_excel()</div>
+          <div style="font-size:10px; color:#475569;">날짜별<br>누적 저장</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /master-wrap -->
+
+  <!-- ── 커넥터 화살표 ── -->
+  <div style="display:flex; justify-content:center; padding:4px 0; flex-direction:column; align-items:center; gap:2px;">
+    <div style="width:2px; height:14px; background:linear-gradient(180deg,#1a3a5c,#7c3aed);"></div>
+    <div style="font-family:monospace; font-size:10px; color:#475569; background:#0a0e1a; padding:2px 12px; border:1px solid #1e2d4a; border-radius:4px; white-space:nowrap;">
+      GET /api/resource &nbsp;·&nbsp; :7000 or :7001 &nbsp;·&nbsp; HTTP &nbsp;·&nbsp; timeout 10s
+    </div>
+    <div style="width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid #7c3aed;"></div>
+  </div>
+
+  <!-- ── AGENT 서버들 ─────────────────────────────── -->
+  <div class="agents-zone">
+    <div class="agents-label">
+      <span class="dot" style="background:#10b981"></span>
+      AGENT SERVERS  ·  각 대상 서버에 설치
+    </div>
+
+    <div class="agents-grid">
+
+      <!-- Agent 카드 반복 (4개) -->
+      <div class="agent-card">
+        <div class="agent-name">web-server-1</div>
+        <div class="port-row">
+          <span class="port port-https" style="font-size:10px;">:8443 HTTPS</span>
+          <span class="port port-http"  style="font-size:10px;">:8001 HTTP</span>
+          <span class="port port-api"   style="font-size:10px;">:7000 API</span>
+        </div>
+        <div class="agent-block">
+          <div class="agent-block-title">수집 메트릭</div>
+          <div class="agent-block-items">
+            CPU 사용률 · 코어수<br>
+            메모리 전체/사용<br>
+            디스크 전체/사용<br>
+            네트워크 송/수신
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-name">web-server-2</div>
+        <div class="port-row">
+          <span class="port port-https" style="font-size:10px;">:8443 HTTPS</span>
+          <span class="port port-http"  style="font-size:10px;">:8001 HTTP</span>
+          <span class="port port-api"   style="font-size:10px;">:7000 API</span>
+        </div>
+        <div class="agent-block">
+          <div class="agent-block-title">API 엔드포인트</div>
+          <div class="agent-block-items">
+            GET /health<br>
+            GET /api/resource<br>
+            GET /api/resource/file<br>
+            GET /api/port
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-name">db-server-1</div>
+        <div class="port-row">
+          <span class="port port-https" style="font-size:10px;">:8443 HTTPS</span>
+          <span class="port port-http"  style="font-size:10px;">:8001 HTTP</span>
+          <span class="port port-api2"  style="font-size:10px;">:7001 API↑</span>
+        </div>
+        <div class="agent-block">
+          <div class="agent-block-title">로컬 저장</div>
+          <div class="agent-block-items">
+            psutil 수집<br>
+            JSON 파일 저장<br>
+            /tmp/server_resource<br>
+            .json
+          </div>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-name">app-server-1</div>
+        <div class="port-row">
+          <span class="port port-https" style="font-size:10px;">:8443 HTTPS</span>
+          <span class="port port-http"  style="font-size:10px;">:8001 HTTP</span>
+          <span class="port port-api"   style="font-size:10px;">:7000 API</span>
+        </div>
+        <div class="agent-block">
+          <div class="agent-block-title">스레드 구성</div>
+          <div class="agent-block-items">
+            Thread: HTTP<br>
+            Thread: HTTPS<br>
+            Thread: API<br>
+            (동시 3포트)
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /agents-zone -->
+
+  <!-- ── 포트 감지 로직 + 데이터 흐름 ── -->
+  <div class="logic-zone">
+
+    <!-- 포트 자동 감지 -->
+    <div class="logic-box">
+      <div class="logic-title">
+        <span style="font-size:14px;">⚡</span>
+        PORT AUTO-DETECTION  ·  port_utils.py
+      </div>
+
+      <div style="font-family:monospace; font-size:10px; color:#4a5568; margin-bottom:10px; letter-spacing:1px;">AGENT 시작 시</div>
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text"><code>is_port_in_use(7000)</code> 체크</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><span class="ok">여유</span> → API 포트 = <code>7000</code></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><span class="alt">사용 중</span> → <code>is_port_in_use(7001)</code> 체크</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text"><span class="ok">여유</span> → API 포트 = <code>7001</code></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text"><span class="err">모두 사용 중</span> → RuntimeError</div>
+      </div>
+
+      <div style="margin-top:14px; border-top:1px solid #1e2d4a; padding-top:12px;">
+        <div style="font-family:monospace; font-size:10px; color:#4a5568; margin-bottom:10px; letter-spacing:1px;">MASTER 수집 시</div>
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-text">GET <code>{host}:7000/api/port</code> 시도</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-text"><span class="ok">200 OK</span> → 해당 포트로 수집</div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-text"><span class="alt">실패</span> → GET <code>{host}:7001/api/port</code></div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-text"><span class="err">모두 실패</span> → 해당 Agent 건너뜀 + 로그</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Excel 저장 로직 -->
+    <div class="logic-box">
+      <div class="logic-title">
+        <span style="font-size:14px;">📊</span>
+        EXCEL 누적 저장 로직  ·  save_excel()
+      </div>
+
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-text">파일명 결정 <code>server_resources_YYYYMMDD.xlsx</code></div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-text"><span class="ok">파일 있음</span> → <code>load_workbook()</code> → 행 append</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-text"><span class="alt">파일 없음</span> → 신규 생성 + 헤더 스타일 적용</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-text">CPU &gt; 80% 행 → 빨간 배경 강조</div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-text">열 너비 자동 조정 후 <code>wb.save()</code></div>
+      </div>
+
+      <div class="excel-info">
+        <div style="font-family:monospace; font-size:9px; color:#4a7a4a; letter-spacing:1px; margin-bottom:8px;">EXCEL 시트 컬럼</div>
+        <div class="row"><span class="key">서버명 · API포트 · 수집시간</span><span>식별 정보</span></div>
+        <div class="row"><span class="key">CPU 사용률(%) · 코어수</span><span>CPU</span></div>
+        <div class="row"><span class="key">메모리 전체/사용/사용률</span><span>Memory</span></div>
+        <div class="row"><span class="key">디스크 전체/사용/사용률</span><span>Disk</span></div>
+        <div class="row"><span class="key">네트워크 송신/수신(MB)</span><span>Network</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── 데이터 흐름 ── -->
+  <div class="dataflow">
+    <div class="dataflow-title">
+      <span>▶</span>
+      FULL DATA FLOW  ·  수집에서 저장까지
+    </div>
+    <div class="flow-row">
+      <span class="flow-box fb-psutil">psutil</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-json">JSON 파일<span class="flow-sub">/tmp/*.json</span></span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-api">Flask API<span class="flow-sub">:7000/7001</span></span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-master">Master 수집<span class="flow-sub">requests.get()</span></span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-df">DataFrame<span class="flow-sub">pandas</span></span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-excel">Excel 누적<span class="flow-sub">openpyxl</span></span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-box fb-dash">Dashboard<span class="flow-sub">:8001/:8443</span></span>
+    </div>
+    <div style="margin-top:8px; font-size:11px; color:#475569; font-family:monospace;">
+      스케줄: 5분마다 반복 &nbsp;·&nbsp; 타임아웃: 10s &nbsp;·&nbsp; 실패 시 해당 Agent 건너뜀 + 로그 기록
+    </div>
+  </div>
+
+  <!-- ── 범례 ── -->
+  <div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#10b981;"></span>HTTPS :8443</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#60a5fa;"></span>HTTP :8001</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#a78bfa;"></span>API :7000 (기본)</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#fb923c;"></span>API :7001 (충돌 시)</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#4ade80;"></span>Excel 누적 저장</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#f87171;"></span>CPU &gt; 80% 경고</div>
+  </div>
+
+</div>
+
+</body>
+</html>
