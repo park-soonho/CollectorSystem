@@ -158,44 +158,66 @@ class ResourceCollector:
             })
         return pd.DataFrame(rows)
 
-    # ── Excel 저장 ───────────────────────────────────────
+    # ── Excel 저장 (날짜별 파일에 수집 회차마다 행 누적) ──────
     @staticmethod
     def save_excel(df: pd.DataFrame) -> Optional[Path]:
-        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filepath = REPORT_DIR / f"server_resources_{ts}.xlsx"
-        try:
-            with pd.ExcelWriter(filepath, engine="openpyxl") as writer:
-                df.to_excel(writer, sheet_name="리소스 현황", index=False)
-                ws = writer.sheets["리소스 현황"]
+        from openpyxl import load_workbook
+        from openpyxl.styles import PatternFill, Font, Alignment
 
-                # 헤더 스타일
-                from openpyxl.styles import PatternFill, Font, Alignment
-                header_fill = PatternFill(fill_type="solid", fgColor="1F4E79")
-                header_font = Font(color="FFFFFF", bold=True)
+        today    = datetime.now().strftime("%Y%m%d")
+        filepath = REPORT_DIR / f"server_resources_{today}.xlsx"
+
+        SHEET    = "리소스 현황"
+        HDR_FILL = PatternFill(fill_type="solid", fgColor="1F4E79")
+        HDR_FONT = Font(color="FFFFFF", bold=True)
+        WARN_FILL= PatternFill(fill_type="solid", fgColor="FFCCCC")
+        CPU_COL  = 4   # "CPU 사용률(%)" 열 (1-based)
+
+        try:
+            if filepath.exists():
+                # ── 기존 파일에 행 추가 ──────────────────────────
+                wb = load_workbook(filepath)
+                ws = wb[SHEET] if SHEET in wb.sheetnames else wb.create_sheet(SHEET)
+
+                for row_data in df.itertuples(index=False, name=None):
+                    ws.append(list(row_data))
+
+            else:
+                # ── 신규 파일 생성 ───────────────────────────────
+                import openpyxl
+                wb = openpyxl.Workbook()
+                ws = wb.active
+                ws.title = SHEET
+
+                # 헤더 행
+                ws.append(list(df.columns))
                 for cell in ws[1]:
-                    cell.fill      = header_fill
-                    cell.font      = header_font
+                    cell.fill      = HDR_FILL
+                    cell.font      = HDR_FONT
                     cell.alignment = Alignment(horizontal="center")
 
-                # 열 너비 자동 조정
-                for col in ws.columns:
-                    max_len = max((len(str(c.value or "")) for c in col), default=10)
-                    ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 30)
+                # 데이터 행
+                for row_data in df.itertuples(index=False, name=None):
+                    ws.append(list(row_data))
 
-                # 임계값 초과 행 강조 (CPU > 80%)
-                from openpyxl.styles import fills
-                warn_fill = PatternFill(fill_type="solid", fgColor="FFCCCC")
-                cpu_col   = 4  # "CPU 사용률(%)" 열 번호 (1-based)
-                for row in ws.iter_rows(min_row=2):
-                    try:
-                        if float(row[cpu_col - 1].value or 0) > 80:
-                            for cell in row:
-                                cell.fill = warn_fill
-                    except (ValueError, TypeError):
-                        pass
+            # CPU 경고 강조 (마지막 추가된 행들 포함 전체 재적용)
+            for row in ws.iter_rows(min_row=2):
+                try:
+                    if float(row[CPU_COL - 1].value or 0) > 80:
+                        for cell in row:
+                            cell.fill = WARN_FILL
+                except (ValueError, TypeError):
+                    pass
 
-            logger.info(f"✓ Excel 저장: {filepath}")
+            # 열 너비 자동 조정
+            for col in ws.columns:
+                max_len = max((len(str(c.value or "")) for c in col), default=10)
+                ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 30)
+
+            wb.save(filepath)
+            logger.info(f"✓ Excel 저장 (누적): {filepath}  ({ws.max_row - 1}행)")
             return filepath
+
         except Exception as e:
             logger.error(f"✗ Excel 저장 실패: {e}")
             return None
