@@ -1,0 +1,17 @@
+[Unit]
+Description=CollectorSystem – Master Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/CollectorSystem/master
+EnvironmentFile=/opt/CollectorSystem/master/.env
+ExecStart=/usr/bin/python3 /opt/CollectorSystem/master/master_server.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/collector/master.log
+StandardError=append:/var/log/collector/master.error.log
+
+[Install]
+WantedBy=multi-user.target
